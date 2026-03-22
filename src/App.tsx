@@ -6,7 +6,7 @@
 import { useState, useRef, useEffect } from "react";
 import { GoogleGenAI } from "@google/genai";
 import ReactMarkdown from "react-markdown";
-import { Terminal, Send, ShieldAlert, Cpu, Code2, Zap, Ghost, Paperclip, Image as ImageIcon, X, ChevronRight, ChevronLeft, Monitor } from "lucide-react";
+import { Terminal, Send, ShieldAlert, Cpu, Code2, Zap, Ghost, Paperclip, Image as ImageIcon, X, ChevronRight, ChevronLeft, Monitor, Download, Key, Settings } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -60,11 +60,13 @@ export default function App() {
   const [status, setStatus] = useState("READY");
   const [isEdgePanelOpen, setIsEdgePanelOpen] = useState(false);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+  const [userApiKey, setUserApiKey] = useState<string>(() => localStorage.getItem("CYBER_CORE_KEY") || "");
   const [attachments, setAttachments] = useState<{ mimeType: string; data: string; name: string }[]>([]);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const keyFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -93,6 +95,25 @@ export default function App() {
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleKeyImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      const key = content.trim();
+      if (key) {
+        setUserApiKey(key);
+        localStorage.setItem("CYBER_CORE_KEY", key);
+        setStatus("KEY_IMPORTED");
+        setTimeout(() => setStatus("READY"), 2000);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   const handleSend = async () => {
     if ((!input.trim() && attachments.length === 0) || isLoading) return;
 
@@ -114,7 +135,7 @@ export default function App() {
     setStatus("BUSY");
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = userApiKey || process.env.GEMINI_API_KEY;
       if (!apiKey) throw new Error("CORE_KEY_MISSING");
 
       const ai = new GoogleGenAI({ apiKey });
@@ -257,10 +278,11 @@ export default function App() {
       
       <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => handleFileUpload(e, 'file')} />
       <input type="file" accept="image/*" ref={imageInputRef} className="hidden" onChange={(e) => handleFileUpload(e, 'image')} />
+      <input type="file" accept=".txt,.key" ref={keyFileRef} className="hidden" onChange={handleKeyImport} />
 
       {/* Top Navigation Bar */}
-      <header className="bg-black/90 backdrop-blur-xl px-6 py-5 flex items-center justify-between border-b border-[#00FF41]/30 z-20 shadow-[0_0_40px_rgba(0,255,65,0.15)]">
-        <div className="flex items-center gap-5">
+      <header className="bg-black/90 backdrop-blur-xl px-4 md:px-6 py-3 md:py-5 flex items-center justify-between border-b border-[#00FF41]/30 z-20 shadow-[0_0_40px_rgba(0,255,65,0.15)]">
+        <div className="flex items-center gap-3 md:gap-5">
           <div className="w-12 h-12 bg-[#00FF41]/10 border border-[#00FF41]/40 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(0,255,65,0.3)] group cursor-pointer">
             <Zap className="w-7 h-7 text-[#00FF41] animate-pulse group-hover:scale-110 transition-transform" />
           </div>
@@ -282,9 +304,13 @@ export default function App() {
           </div>
           <button 
             onClick={() => setIsEdgePanelOpen(!isEdgePanelOpen)}
-            className="p-2 hover:bg-[#00FF41]/10 rounded-lg transition-all border border-transparent hover:border-[#00FF41]/30"
+            className={cn(
+              "flex items-center gap-2 px-3 py-2 rounded-lg transition-all border",
+              isEdgePanelOpen ? "bg-[#00FF41]/20 border-[#00FF41]/50 text-[#00FF41]" : "bg-white/5 border-white/10 hover:border-[#00FF41]/30 text-white/60 hover:text-[#00FF41]"
+            )}
           >
-            <Monitor className="w-5 h-5" />
+            <Key className="w-4 h-4" />
+            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">API_KEY</span>
           </button>
         </div>
       </header>
@@ -297,10 +323,40 @@ export default function App() {
         )}>
           <div className="p-8 h-full flex flex-col">
             <div className="flex items-center justify-between mb-8 border-b border-[#00FF41]/20 pb-4">
-              <span className="text-xs font-black uppercase tracking-widest flex items-center gap-3"><Code2 className="w-4 h-4" /> Intel_Modules</span>
+              <span className="text-xs font-black uppercase tracking-widest flex items-center gap-3"><Settings className="w-4 h-4" /> System_Settings</span>
               <button onClick={() => setIsEdgePanelOpen(false)} className="hover:text-white transition-colors"><ChevronLeft className="w-6 h-6" /></button>
             </div>
             <div className="flex-1 space-y-8 overflow-y-auto scrollbar-none">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] font-black text-[#00FF41] uppercase tracking-[0.3em] opacity-50">Neural_Key_Override</div>
+                  <button 
+                    onClick={() => keyFileRef.current?.click()}
+                    className="text-[8px] font-black text-[#00FF41] hover:underline flex items-center gap-1 opacity-50 hover:opacity-100 transition-opacity"
+                  >
+                    <Download className="w-2 h-2" /> IMPORT_FILE
+                  </button>
+                </div>
+                <div className="relative group">
+                  <input 
+                    type="password"
+                    value={userApiKey}
+                    onChange={(e) => {
+                      setUserApiKey(e.target.value);
+                      localStorage.setItem("CYBER_CORE_KEY", e.target.value);
+                    }}
+                    placeholder="Enter_API_Key..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[10px] font-mono text-[#00FF41] focus:outline-none focus:border-[#00FF41]/40 transition-all placeholder:text-white/10"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-20 group-hover:opacity-100 transition-opacity">
+                    <Zap className="w-3 h-3 text-[#00FF41]" />
+                  </div>
+                </div>
+                <div className="text-[8px] font-bold text-white/20 px-1 italic">
+                  * Key is stored locally in your browser cache.
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <div className="text-[10px] font-black text-[#00FF41] uppercase tracking-[0.3em] opacity-50">Neural_Voice_Protocol</div>
                 <button 
@@ -391,10 +447,10 @@ export default function App() {
         </aside>
 
         {/* Chat Main Window */}
-        <main className="flex-1 flex flex-col max-w-5xl mx-auto w-full overflow-hidden relative z-10">
+        <main className="flex-1 flex flex-col lg:max-w-5xl mx-auto w-full overflow-hidden relative z-10">
           <div 
             ref={scrollRef}
-            className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8 scrollbar-thin scrollbar-thumb-[#00FF41]/10 scrollbar-track-transparent"
+            className="flex-1 overflow-y-auto p-4 md:p-10 space-y-6 md:space-y-8 scrollbar-thin scrollbar-thumb-[#00FF41]/10 scrollbar-track-transparent"
           >
             {messages.map((msg, idx) => (
               <div 
@@ -557,8 +613,8 @@ export default function App() {
           </div>
 
           {/* Input Area */}
-          <div className="p-6 md:p-10 bg-gradient-to-t from-black via-black/90 to-transparent">
-            <div className="max-w-4xl mx-auto w-full flex flex-col gap-4">
+          <div className="p-4 md:p-10 bg-gradient-to-t from-black via-black/90 to-transparent">
+            <div className="lg:max-w-4xl mx-auto w-full flex flex-col gap-4">
               {attachments.length > 0 && (
                 <div className="flex flex-wrap gap-3 px-2">
                   {attachments.map((att, i) => (
@@ -597,15 +653,15 @@ export default function App() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                  placeholder="Establish neural link... enter command..."
-                  className="w-full bg-black/90 border border-[#00FF41]/30 rounded-2xl py-7 pl-32 pr-20 focus:outline-none focus:border-[#00FF41] focus:ring-8 focus:ring-[#00FF41]/5 transition-all placeholder:text-[#00FF41]/20 text-white shadow-[0_0_50px_rgba(0,0,0,1)] font-mono tracking-wider"
+                  placeholder="Establish neural link..."
+                  className="w-full bg-black/90 border border-[#00FF41]/30 rounded-2xl py-5 md:py-7 pl-24 md:pl-32 pr-16 md:pr-20 focus:outline-none focus:border-[#00FF41] focus:ring-8 focus:ring-[#00FF41]/5 transition-all placeholder:text-[#00FF41]/20 text-white shadow-[0_0_50px_rgba(0,0,0,1)] font-mono text-sm md:text-base tracking-wider"
                 />
                 <button
                   onClick={handleSend}
                   disabled={isLoading || (!input.trim() && attachments.length === 0)}
-                  className="absolute right-4 p-4 bg-[#00FF41] text-black rounded-xl hover:bg-[#00FF41]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_0_20px_rgba(0,255,65,0.4)]"
+                  className="absolute right-3 md:right-4 p-3 md:p-4 bg-[#00FF41] text-black rounded-xl hover:bg-[#00FF41]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_0_20px_rgba(0,255,65,0.4)]"
                 >
-                  <Send className="w-6 h-6" />
+                  <Send className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
               </div>
               <div className="flex justify-between items-center px-4">
